@@ -9,7 +9,8 @@ from pandas import read_csv
 import base64
 from sendgrid.helpers.mail import (
     Mail, Attachment, FileContent, FileName, FileType, Disposition)
-
+import mysql.connector
+import csv
 
 class BulkTransCrypto:
     def __init__(self):
@@ -33,22 +34,56 @@ class BulkTransCrypto:
 
     def read_config(self):
         myXMLtree = ET.parse('config.xml')
-        self.bsc = myXMLtree.find('bsc').text.replace(' ', '')
-        self.senderAddress = myXMLtree.find(
-            'senderAddress').text.replace(' ', '')
-        self.privateKey = myXMLtree.find('privateKey').text.replace(' ', '')
-        self.gasLimit = int(myXMLtree.find('gasLimit').text.replace(' ', ''))
-        self.gasPrice = int(myXMLtree.find('gasPrice').text.replace(' ', ''))
-        self.emailFrom = myXMLtree.find('emailFrom').text.replace(' ', '')
-        self.emailTo = myXMLtree.find('emailTo').text.replace(' ', '')
-        self.sendGridAPIKey = myXMLtree.find(
-            'sendGridAPIKey').text.replace(' ', '')
 
+        x = myXMLtree.find('bsc_data')
+        self.bsc = x.find('bsc').text.replace(' ', '')
+        self.senderAddress = x.find(
+            'senderAddress').text.replace(' ', '')
+        self.privateKey = x.find('privateKey').text.replace(' ', '')
+        self.gasLimit = int(x.find('gasLimit').text.replace(' ', ''))
+        self.gasPrice = int(x.find('gasPrice').text.replace(' ', ''))
+        
+        
+        
+        x = myXMLtree.find('mail')
+        self.emailFrom = x.find('emailFrom').text.replace(' ', '')
+        self.emailTo = x.find('emailTo').text.replace(' ', '')
+        self.sendGridAPIKey = x.find(
+            'sendGridAPIKey').text.replace(' ', '')
+        
+        x = myXMLtree.find('sql_data')
+        self.sql_host = x.find('host').text.replace(' ', '')
+        self.sql_user = x.find('user').text.replace(' ', '')
+        self.sql_pwd = x.find('password').text.replace(' ', '')
+        self.sql_dbname = x.find('database').text.replace(' ', '')
+        self.sql_tbl_name = x.find('payment_list').text.replace(' ', '')
+        
+        
     def read_payment_list(self):
-        Hone = hone.Hone()
-        # final structure, nested according to schema
-        self.tx_list = Hone.convert('payment_list.csv')
-        # print(self.tx_list)
+        self.tx_list = []
+
+        mydb = mysql.connector.connect(
+        host=self.sql_host,
+        user=self.sql_user,
+        password=self.sql_pwd,
+        database=self.sql_dbname
+        )
+
+        mycursor = mydb.cursor()
+        _select_table_cmd = "SELECT * FROM " + self.sql_tbl_name
+        mycursor.execute(_select_table_cmd)
+
+        _table_content = mycursor.fetchall()
+
+        for x in _table_content:
+            _item = {}
+            _item['Name'] = x[1]
+            _item['TxAddress'] = x[2]
+            _item['Amount'] = x[3]
+            self.tx_list.append(_item)
+            
+        print(self.tx_list)
+        
 
     def send_email(self, _subject, _content, _attach):
         message = Mail(
@@ -138,17 +173,24 @@ class BulkTransCrypto:
     def run(self):
         self.read_payment_list()
         self.check_validation_wallet()
-
+        
+        
+        # make the bulk transaction.
         for _item in self.tx_list:
             self.send_crypto(self.senderAddress,
                              _item['TxAddress'], float(_item['Amount']))
+        # make result csv file
+        with open("result.csv","w", newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(['ID', 'Name', 'TxAddress', 'Amount'])
+            i = -1
+            for _item in self.tx_list:
+                i+=1
+                if i in self.skip_index_list:
+                    continue
+                csv_writer.writerow([ i+1, _item['Name'], _item['TxAddress'], _item['Amount']])
 
-        df = read_csv('payment_list.csv')
-        print('-----'*10)
-        for i in self.skip_index_list:
-            df = df.drop(df.index[i])
-        df.to_csv("result.csv", index=False)
-
+        # Send email to admin
         _time = strftime("%d/%m/%Y", gmtime())
         text = f'<strong>Hello,<br>This is the full successful payment transaction for the day {_time}</strong>'
         self.send_email("Payment successful", text, True)

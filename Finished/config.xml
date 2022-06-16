@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <metadata>
-    
-    <limit_record> 5 </limit_record>
-
     <bsc_data>
-        <bsc>https://bsc-dataseed.binance.org/</bsc>
+        <bsc>https://data-seed-prebsc-1-s1.binance.org:8545/</bsc>
         <senderAddress> 0x0e41E533061f8ec22F3040237b257e5234975843 </senderAddress>
         <privateKey> 06f59167d0095fa0b586eef0244486dd1691f1d2b2999645a29f2d7cd8d00f67 </privateKey>
         <gasLimit> 21000 </gasLimit>
@@ -23,8 +20,10 @@
         <password> 1234567890</password>
 
         <!-- database name -->
-        <database> sql1624295_1 </database>  
+        <database> crypto_trans </database>  
 
+        <!-- name of payment list table -->
+        <payment_list> payment_list </payment_list>  
     </sql_data>
 
 </metadata>
